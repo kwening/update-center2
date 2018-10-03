@@ -12,7 +12,7 @@ import java.util.Collection;
  */
 public class ListPluginsAndVersions {
     public static void main(String[] args) throws Exception{
-        MavenRepositoryImpl r = DefaultMavenRepositoryBuilder.getInstance();
+        MavenRepositoryImpl r = DefaultMavenRepositoryBuilder.getDefaultInstance();
 
         System.out.println(r.getHudsonWar().firstKey());
 
