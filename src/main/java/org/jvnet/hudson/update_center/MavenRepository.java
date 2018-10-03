@@ -9,6 +9,8 @@ import org.sonatype.nexus.index.context.UnsupportedExistingLuceneIndexException;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
@@ -93,6 +95,24 @@ public abstract class MavenRepository {
     /** @return The base instance that this repository is wrapping; or {@code null} if this is the base instance. */
     public MavenRepository getBaseRepository() {
         return base;
+    }
+    
+    // NOTE: MavenArtifact already made assumptions about MavenRepositoryImpl being
+    // configured by DefaultMavenRepositoryBuilder with a single remote repo, so we'll expose that here
+    // and move the assumption up so we only have to configure it once...
+    public URL getURL() throws MalformedURLException {
+        if (base != null) {
+            return base.getURL();
+        }
+        return null;
+    }
+    // NOTE: HPI and HudsonWar already made assumptions there is a single download url, so we'll expose that here
+    // and move the assumption up so we only have to configure it once...
+    public URL getDownloadURL() throws MalformedURLException {
+        if (base != null) {
+            return base.getDownloadURL();
+        }
+        return null;
     }
 
 }

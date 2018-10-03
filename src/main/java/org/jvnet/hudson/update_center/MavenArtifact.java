@@ -182,7 +182,15 @@ public class MavenArtifact {
      * Where to download from?
      */
     public URL getURL() throws MalformedURLException {
-        return new URL("repo.jenkins-ci.org/public/"+artifact.groupId.replace('.','/')+"/"+artifact.artifactId+"/"+artifact.version+"/"+artifact.artifactId+"-"+artifact.version+"."+artifact.packaging);
+        URL repoUrl = repository.getURL();
+        String path = artifact.groupId.replace('.','/')+"/"+artifact.artifactId+"/"+artifact.version+"/"+artifact.artifactId+"-"+artifact.version+"."+artifact.packaging;
+        // maintain compatibility for the prior implementation when using the default repo
+        // assuming dropping the protocol was done with purpose but it relies on assumptions about the repo url
+        // and the availability of the resources on multiple protocols
+        if (repoUrl.toString().startsWith("http://repo.jenkins-ci.org/public/")) {
+            return new URL("repo.jenkins-ci.org/public/"+path);
+        }
+        return new URL(repoUrl, path);
     }
 
     @Override

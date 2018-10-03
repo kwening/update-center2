@@ -25,19 +25,36 @@ package org.jvnet.hudson.update_center;
 
 import java.net.URL;
 
-public class DefaultMavenRepositoryBuilder {
-    
-    private DefaultMavenRepositoryBuilder () {
-        
-    }
+import org.apache.maven.artifact.repository.Authentication;
+import org.kohsuke.args4j.Option;
 
-    private static MavenRepositoryImpl instance;
+public class DefaultMavenRepositoryBuilder {
+	
+    @Option(name="-repositoryId", usage="Id of the custom maven repository")
+    public String repositoryId = "public";
+    @Option(name="-repositoryUrl", usage="URL of the custom maven repository")
+    public String repositoryUrl = "http://repo.jenkins-ci.org/public/";
+    @Option(name="-repositoryUser", usage="Username to access the custom maven repository")
+    public String repositoryUser = "";
+    @Option(name="-repositoryPass", usage="Password to access the custom maven repository")
+    public String repositoryPass = "";
+    @Option(name="-downloadUrl", usage="URL of the custom download site")
+    public String downloadUrl = "http://updates.jenkins-ci.org/download/";
     
-    public static MavenRepositoryImpl getInstance() throws Exception {
-        if (instance == null) {
-            instance = new MavenRepositoryImpl();
-            instance.addRemoteRepository("public", new URL("http://repo.jenkins-ci.org/public/"));
+    public DefaultMavenRepositoryBuilder () {}
+    
+    public static MavenRepositoryImpl getDefaultInstance() throws Exception {
+        return new DefaultMavenRepositoryBuilder().getInstance();
+    }
+    
+    public MavenRepositoryImpl getInstance() throws Exception {
+        MavenRepositoryImpl instance = new MavenRepositoryImpl(new URL(downloadUrl));
+        
+        if(!repositoryUser.isEmpty() && !repositoryPass.isEmpty()) {
+        	instance.setAuth(new Authentication(repositoryUser,repositoryPass));
         }
+        
+        instance.addRemoteRepository(repositoryId, new URL(repositoryUrl));
         return instance;
     }
 }

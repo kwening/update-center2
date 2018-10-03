@@ -34,6 +34,7 @@ import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryFactory;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
@@ -63,6 +64,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
@@ -92,8 +94,10 @@ public class MavenRepositoryImpl extends MavenRepository {
     protected ArtifactRepositoryFactory arf;
     private PlexusContainer plexus;
     private boolean offlineIndex;
+    private Authentication auth;
+    protected URL downloadUrl;
 
-    public MavenRepositoryImpl() throws Exception {
+    public MavenRepositoryImpl(URL downloadUrl) throws Exception {
         ClassWorld classWorld = new ClassWorld( "plexus.core", MavenRepositoryImpl.class.getClassLoader() );
         ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld( classWorld );
         plexus = new DefaultPlexusContainer( configuration );
@@ -115,6 +119,7 @@ public class MavenRepositoryImpl extends MavenRepository {
         local = arf.createArtifactRepository("local",
                 localRepo.toURI().toURL().toExternalForm(),
                 new DefaultRepositoryLayout(), POLICY, POLICY);
+        this.downloadUrl = downloadUrl;
     }
 
     /**
@@ -142,9 +147,14 @@ public class MavenRepositoryImpl extends MavenRepository {
      */
     public void addRemoteRepository(String id, File indexDirectory, URL repository) throws IOException, UnsupportedExistingLuceneIndexException {
         indexer.addIndexingContext(id, id,null, indexDirectory,null,null, NexusIndexer.DEFAULT_INDEX);
-        remoteRepositories.add(
-                arf.createArtifactRepository(id, repository.toExternalForm(),
-                        new DefaultRepositoryLayout(), POLICY, POLICY));
+        ArtifactRepository repo = arf.createArtifactRepository(id, repository.toExternalForm(),
+                new DefaultRepositoryLayout(), POLICY, POLICY);
+        
+        if(this.auth != null) {
+        	repo.setAuthentication(auth);
+        }
+        
+        remoteRepositories.add(repo);
     }
 
     public void addRemoteRepository(String id, URL repository) throws IOException, UnsupportedExistingLuceneIndexException {
@@ -164,7 +174,10 @@ public class MavenRepositoryImpl extends MavenRepository {
         File expanded = new File(dir,"expanded");
 
         URLConnection con = url.openConnection();
-        if (url.getUserInfo()!=null) {
+        
+        if(this.auth != null) {
+        	con.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString((auth.getUsername()+":"+auth.getPassword()).getBytes("UTF-8")));
+        } else if (url.getUserInfo()!=null) {
             con.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString(url.getUserInfo().getBytes("UTF-8")));
         }
 
@@ -330,4 +343,18 @@ public class MavenRepositoryImpl extends MavenRepository {
      * Hudson -> Jenkins cut-over version.
      */
     public static final VersionNumber CUT_OFF = new VersionNumber("1.395");
+
+	public void setAuth(Authentication authentication) {
+		this.auth = authentication;
+	}
+	
+    @Override
+    public URL getURL() throws MalformedURLException {
+        assert remoteRepositories.size() == 1;
+        return new URL(remoteRepositories.get(0).getUrl());
+    }
+    @Override
+    public URL getDownloadURL() {
+        return downloadUrl;
+    }
 }
