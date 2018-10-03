@@ -173,7 +173,7 @@
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-compat</artifactId>
-      <version>3.0-alpha-2</version>
+      <version>3.0.5</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci</groupId>
@@ -199,6 +199,11 @@
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>owasp-java-html-sanitizer</artifactId>
       <version>20180219.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.sonatype.aether</groupId>
+      <artifactId>aether-connector-wagon</artifactId>
+      <version>1.13</version>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
@@ -232,4 +237,13 @@
     </snapshotRepository>
   </distributionManagement>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-model</artifactId>
+        <version>3.0.5</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 </project>

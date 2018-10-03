@@ -23,10 +23,11 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
 import org.apache.maven.artifact.installer.ArtifactInstallationException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.RepositoryRequest;
 import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionException;
-import org.apache.maven.artifact.transform.ArtifactTransformation;
-import org.apache.maven.artifact.transform.ArtifactTransformationManager;
+import org.apache.maven.repository.legacy.resolver.transform.ArtifactTransformation;
+import org.apache.maven.repository.legacy.resolver.transform.ArtifactTransformationManager;
 import org.codehaus.plexus.personality.plexus.lifecycle.phase.Initializable;
 import org.codehaus.plexus.personality.plexus.lifecycle.phase.InitializationException;
 
@@ -37,17 +38,14 @@ import java.util.List;
 /**
  * Patched to avoid the problem in the initialize method.
  */
-public class DefaultArtifactTransformationManager
-    implements ArtifactTransformationManager, Initializable
-{
-    private List artifactTransformations;
+public class DefaultArtifactTransformationManager implements ArtifactTransformationManager, Initializable {
+	private List artifactTransformations;
 
 	public void initialize() throws InitializationException {
 		// TODO this is a hack until plexus can fix the ordering of the arrays
-        artifactTransformations = new ArrayList(artifactTransformations);
+		artifactTransformations = new ArrayList(artifactTransformations);
 		Object[] obj = artifactTransformations.toArray();
-		for (int x = 0; x < obj.length; x++)
-		{
+		for (int x = 0; x < obj.length; x++) {
 			if (obj[x].getClass().getName().indexOf("Snapshot") != -1) {
 				artifactTransformations.remove(obj[x]);
 				artifactTransformations.add(obj[x]);
@@ -55,38 +53,37 @@ public class DefaultArtifactTransformationManager
 		}
 	}
 
-    public void transformForResolve( Artifact artifact, List remoteRepositories, ArtifactRepository localRepository )
-        throws ArtifactResolutionException, ArtifactNotFoundException
-    {
-        for ( Iterator i = artifactTransformations.iterator(); i.hasNext(); )
-        {
-            ArtifactTransformation transform = (ArtifactTransformation) i.next();
-            transform.transformForResolve( artifact, remoteRepositories, localRepository );
-        }
-    }
+	public void transformForResolve(Artifact artifact, List remoteRepositories, ArtifactRepository localRepository)
+			throws ArtifactResolutionException, ArtifactNotFoundException {
+		for (Iterator i = artifactTransformations.iterator(); i.hasNext();) {
+			ArtifactTransformation transform = (ArtifactTransformation) i.next();
+			transform.transformForResolve(artifact, remoteRepositories, localRepository);
+		}
+	}
 
-    public void transformForInstall( Artifact artifact, ArtifactRepository localRepository )
-        throws ArtifactInstallationException
-    {
-        for ( Iterator i = artifactTransformations.iterator(); i.hasNext(); )
-        {
-            ArtifactTransformation transform = (ArtifactTransformation) i.next();
-            transform.transformForInstall( artifact, localRepository );
-        }
-    }
+	public void transformForInstall(Artifact artifact, ArtifactRepository localRepository)
+			throws ArtifactInstallationException {
+		for (Iterator i = artifactTransformations.iterator(); i.hasNext();) {
+			ArtifactTransformation transform = (ArtifactTransformation) i.next();
+			transform.transformForInstall(artifact, localRepository);
+		}
+	}
 
-    public void transformForDeployment( Artifact artifact, ArtifactRepository remoteRepository,
-                                        ArtifactRepository localRepository )
-        throws ArtifactDeploymentException
-    {
-        for ( Iterator i = artifactTransformations.iterator(); i.hasNext(); )
-        {
-            ArtifactTransformation transform = (ArtifactTransformation) i.next();
-            transform.transformForDeployment( artifact, remoteRepository, localRepository );
-        }
-    }
+	public void transformForDeployment(Artifact artifact, ArtifactRepository remoteRepository,
+			ArtifactRepository localRepository) throws ArtifactDeploymentException {
+		for (Iterator i = artifactTransformations.iterator(); i.hasNext();) {
+			ArtifactTransformation transform = (ArtifactTransformation) i.next();
+			transform.transformForDeployment(artifact, remoteRepository, localRepository);
+		}
+	}
 
-    public List getArtifactTransformations() {
-        return artifactTransformations;
-    }
+	public List getArtifactTransformations() {
+		return artifactTransformations;
+	}
+
+	@Override
+	public void transformForResolve(Artifact artifact, RepositoryRequest request)
+			throws ArtifactResolutionException, ArtifactNotFoundException {
+		System.out.println("transformForResolve");
+	}
 }

@@ -37,7 +37,7 @@ import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
-import org.apache.maven.artifact.transform.ArtifactTransformationManager;
+import org.apache.maven.repository.legacy.resolver.transform.ArtifactTransformationManager;
 import org.apache.tools.ant.taskdefs.Expand;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
@@ -108,6 +108,7 @@ public class MavenRepositoryImpl extends MavenRepository {
 
         af = plexus.lookup(ArtifactFactory.class);
         ar = plexus.lookup(ArtifactResolver.class);
+        
         arf = plexus.lookup(ArtifactRepositoryFactory.class);
 
         localRepo = new File(new File(System.getProperty("user.home")), ".m2/repository");
