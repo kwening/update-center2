@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.jenkins-ci</groupId>
@@ -6,7 +8,7 @@
     <version>1.35</version>
   </parent>
   <artifactId>update-center2</artifactId>
-  
+
   <version>2.1-SNAPSHOT</version>
   <name>Update center generator for jenkins-ci.org</name>
   <description>Generates update center script</description>
@@ -154,7 +156,8 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency><!-- this version doesn't have ugly snapshot Google collection dependency -->
+    <dependency><!-- this version doesn't have ugly snapshot Google collection 
+        dependency -->
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-container-default</artifactId>
       <version>1.5.5</version>
@@ -206,6 +209,16 @@
       <version>1.13</version>
     </dependency>
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>1.10.19</version>
@@ -219,7 +232,7 @@
       <url>http://repo.jenkins-ci.org/public/</url>
     </repository>
   </repositories>
-  
+
   <scm>
     <connection>scm:git:git://github.com/jenkinsci/backend-update-center2.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/jenkinsci/backend-update-center2.git</developerConnection>
@@ -232,7 +245,7 @@
       <url>https://repo.jenkins-ci.org/releases</url>
     </repository>
     <snapshotRepository>
-      <id>maven.jenkins-ci.org</id> 
+      <id>maven.jenkins-ci.org</id>
       <url>https://repo.jenkins-ci.org/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
