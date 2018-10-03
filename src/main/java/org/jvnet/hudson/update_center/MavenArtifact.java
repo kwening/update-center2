@@ -70,7 +70,7 @@ public class MavenArtifact {
             if (hpi==null)
                 hpi = repository.resolve(artifact);
             return hpi;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | AbstractArtifactResolutionException e) {
             /*
                 Exception in thread "main" java.lang.IllegalArgumentException: Invalid uri 'http://maven.glassfish.org/content/groups/public//${parent/groupId}/startup-trigger-plugin/1.1/startup-trigger-plugin-1.1.hpi': escaped absolute path not valid
                     at org.apache.commons.httpclient.HttpMethodBase.<init>(HttpMethodBase.java:222)
@@ -92,8 +92,6 @@ public class MavenArtifact {
                     at org.jvnet.hudson.update_center.Main.checkLatestDate(Main.java:301)
                     at org.jvnet.hudson.update_center.Main.buildPlugins(Main.java:269)
              */
-            throw (IOException)new IOException("Failed to resolve artifact "+artifact).initCause(e);
-        } catch (AbstractArtifactResolutionException e) {
             throw (IOException)new IOException("Failed to resolve artifact "+artifact).initCause(e);
         }
     }
@@ -163,7 +161,7 @@ public class MavenArtifact {
         return sdf;
     }
         
-    public long getTimestamp() throws IOException {
+    public long getTimestamp() {
         return artifact.lastModified;
     }
 

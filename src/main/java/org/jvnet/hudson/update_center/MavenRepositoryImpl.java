@@ -227,8 +227,12 @@ public class MavenRepositoryImpl extends MavenRepository {
 			}
 
 			// as a proof that the expansion was properly completed
-			tmp.renameTo(localIndex);
-			localIndex.setLastModified(con.getLastModified());
+			if(!tmp.renameTo(localIndex)) {
+				logger.error("Index not renamed from {} to {}",tmp, localIndex);
+			}
+			if(!localIndex.setLastModified(con.getLastModified())) {
+				logger.error("Last modified of index not set");
+			}
 		} else {
 			logger.info("Reusing the locally cached {} at {}", url, localIndex);
 		}

@@ -16,6 +16,8 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.mortbay.util.QuotedStringTokenizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,14 +48,17 @@ import static java.security.Security.addProvider;
  * @author Kohsuke Kawaguchi
  */
 public class Signer {
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private static final String UTF8 = "UTF-8";
+	
     @Option(name="-key",usage="Private key to sign the update center. Must be used in conjunction with -certificate.")
     public File privateKey = null;
 
     @Option(name="-certificate",usage="X509 certificate for the private key given by the -key option. Specify additional -certificate options to pass in intermediate certificates, if any.")
-    public List<File> certificates = new ArrayList<File>();
+    public List<File> certificates = new ArrayList<>();
 
     @Option(name="-root-certificate",usage="Additional root certificates")
-    public List<File> rootCA = new ArrayList<File>();
+    public List<File> rootCA = new ArrayList<>();
 
     // debug option. spits out the canonical update center file used to compute the signature
     @Option(name="-canonical")
@@ -63,7 +68,7 @@ public class Signer {
      * Parses JENKINS_SIGNER environment variable as the argument list and configure the instance.
      */
     public Signer configureFromEnvironment() throws CmdLineException {
-        List<String> args = new ArrayList<String>();
+        List<String> args = new ArrayList<>();
 
         String env = System.getenv("JENKINS_SIGNER");
         if (env==null)      return this;
@@ -111,7 +116,7 @@ public class Signer {
         // first, backward compatible signature for <1.433 Jenkins that forgets to flush the stream.
         // we generate this in the original names that those Jenkins understands.
         SignatureGenerator sg = new SignatureGenerator(signer, key);
-        o.writeCanonical(new OutputStreamWriter(sg.getOut(),"UTF-8"));
+        o.writeCanonical(new OutputStreamWriter(sg.getOut(),UTF8));
         sg.addRecord(sign,"");
 
         // then the correct signature, into names that don't collide.
@@ -120,7 +125,7 @@ public class Signer {
             raw = new FileOutputStream(canonical);
         }
         sg = new SignatureGenerator(signer, key);        
-        try(OutputStreamWriter osw = new OutputStreamWriter(new TeeOutputStream(sg.getOut(),raw),"UTF-8")) {            
+        try(OutputStreamWriter osw = new OutputStreamWriter(new TeeOutputStream(sg.getOut(),raw),UTF8)) {            
             o.writeCanonical(osw);
         }
         sg.addRecord(sign,"correct_");
@@ -128,7 +133,7 @@ public class Signer {
         // and certificate chain
         JSONArray a = new JSONArray();
         for (X509Certificate cert : certs)
-            a.add(new String(Base64.encodeBase64(cert.getEncoded()), "UTF-8"));
+            a.add(new String(Base64.encodeBase64(cert.getEncoded()), UTF8));
         sign.put("certificates",a);
 
         o.put("signature",sign);
@@ -152,28 +157,30 @@ public class Signer {
             // this is for computing a digest
             sha1 = DigestUtils.getSha1Digest();
             sha512 = DigestUtils.getSha512Digest();
-            DigestOutputStream dos1 = new DigestOutputStream(new NullOutputStream(), sha1);
-            DigestOutputStream dos512 = new DigestOutputStream(new NullOutputStream(), sha512);
-
+            
             // this is for computing a signature
             sha1sig = Signature.getInstance("SHA1withRSA");
             sha1sig.initSign(key);
-            SignatureOutputStream sos1 = new SignatureOutputStream(sha1sig);
-
+            
             sha512sig = Signature.getInstance("SHA512withRSA");
             sha512sig.initSign(key);
-            SignatureOutputStream sos512 = new SignatureOutputStream(sha512sig);
-
+            
             // this is for verifying that signature validates
             verifier1 = Signature.getInstance("SHA1withRSA");
             verifier1.initVerify(signer.getPublicKey());
-            SignatureOutputStream vos1 = new SignatureOutputStream(verifier1);
-
+            
             verifier512 = Signature.getInstance("SHA512withRSA");
             verifier512.initVerify(signer.getPublicKey());
-            SignatureOutputStream vos512 = new SignatureOutputStream(verifier512);
-
-            out = new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(dos1, sos1), vos1), dos512), sos512), vos512);
+            
+            try(DigestOutputStream dos1 = new DigestOutputStream(new NullOutputStream(), sha1);
+	            DigestOutputStream dos512 = new DigestOutputStream(new NullOutputStream(), sha512);
+	            SignatureOutputStream sos1 = new SignatureOutputStream(sha1sig);
+	            SignatureOutputStream sos512 = new SignatureOutputStream(sha512sig);
+	            SignatureOutputStream vos1 = new SignatureOutputStream(verifier1);
+	            SignatureOutputStream vos512 = new SignatureOutputStream(verifier512)) {
+            	
+            	out = new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(new TeeOutputStream(dos1, sos1), vos1), dos512), sos512), vos512);
+            }
         }
 
         public TeeOutputStream getOut() {
@@ -183,13 +190,13 @@ public class Signer {
         public void addRecord(JSONObject sign, String prefix) throws GeneralSecurityException, IOException {
             // digest
             byte[] digest = sha1.digest();
-            sign.put(prefix+"digest",new String(Base64.encodeBase64(digest), "UTF-8"));
+            sign.put(prefix+"digest",new String(Base64.encodeBase64(digest), UTF8));
             sign.put(prefix+"digest512", Hex.encodeHexString(sha512.digest()));
 
             // signature
             byte[] s1 = sha1sig.sign();
             byte[] s512 = sha512sig.sign();
-            sign.put(prefix+"signature",new String(Base64.encodeBase64(s1), "UTF-8"));
+            sign.put(prefix+"signature",new String(Base64.encodeBase64(s1), UTF8));
             sign.put(prefix+"signature512",Hex.encodeHexString(s512));
 
             // did the signature validate?
@@ -205,7 +212,7 @@ public class Signer {
      */
     protected List<X509Certificate> getCertificateChain() throws IOException, GeneralSecurityException {
         CertificateFactory cf = CertificateFactory.getInstance("X509");
-        List<X509Certificate> certs = new ArrayList<X509Certificate>();
+        List<X509Certificate> certs = new ArrayList<>();
         for (File f : certificates) {
             X509Certificate c = loadCertificate(cf, f);
             c.checkValidity(new Date(System.currentTimeMillis()+ TimeUnit.DAYS.toMillis(30)));
@@ -222,7 +229,7 @@ public class Signer {
         try {
             CertificateUtil.validatePath(certs,rootCAs);
         } catch (GeneralSecurityException e) {
-            e.printStackTrace();
+            logger.error("Failed to get certificate chain",e);
         }
         return certs;
     }
@@ -237,9 +244,7 @@ public class Signer {
             } finally {
                 in.close();
             }
-        } catch (CertificateException e) {
-            throw (IOException)new IOException("Failed to load certificate "+f).initCause(e);
-        } catch (IOException e) {
+        } catch (CertificateException | IOException e) {
             throw (IOException)new IOException("Failed to load certificate "+f).initCause(e);
         }
     }

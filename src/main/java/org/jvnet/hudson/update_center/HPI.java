@@ -25,7 +25,8 @@ package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
 import net.sf.json.JSONObject;
-import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sonatype.nexus.index.ArtifactInfo;
 
 import java.io.IOException;
@@ -42,6 +43,8 @@ import java.net.MalformedURLException;
  * @author Kohsuke Kawaguchi
  */
 public class HPI extends MavenArtifact {
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	
     /**
      * Which of the lineage did this come from?
      */
@@ -49,7 +52,7 @@ public class HPI extends MavenArtifact {
 
     private final Pattern developersPattern = Pattern.compile("([^:]*):([^:]*):([^,]*),?");
 
-    public HPI(MavenRepository repository, PluginHistory history, ArtifactInfo artifact) throws AbstractArtifactResolutionException {
+    public HPI(MavenRepository repository, PluginHistory history, ArtifactInfo artifact) {
         super(repository, artifact);
         this.history = history;
     }
@@ -57,6 +60,7 @@ public class HPI extends MavenArtifact {
     /**
      * Download a plugin via more intuitive URL. This also helps us track download counts.
      */
+    @Override
     public URL getURL() throws MalformedURLException {
         return new URL(repository.getDownloadURL(), "plugins/"+artifact.artifactId+"/"+version+"/"+artifact.artifactId+".hpi");
     }
@@ -122,7 +126,7 @@ public class HPI extends MavenArtifact {
         String deps = getManifestAttributes().getValue("Plugin-Dependencies");
         if(deps==null)  return Collections.emptyList();
 
-        List<Dependency> r = new ArrayList<Dependency>();
+        List<Dependency> r = new ArrayList<>();
         for(String token : deps.split(","))
             r.add(new Dependency(token));
         return r;
@@ -132,7 +136,7 @@ public class HPI extends MavenArtifact {
         String devs = getManifestAttributes().getValue("Plugin-Developers");
         if (devs == null || devs.trim().length()==0) return Collections.emptyList();
 
-        List<Developer> r = new ArrayList<Developer>();
+        List<Developer> r = new ArrayList<>();
         Matcher m = developersPattern.matcher(devs);
         int totalMatched = 0;
         while (m.find()) {
@@ -141,7 +145,7 @@ public class HPI extends MavenArtifact {
         }
         if (totalMatched < devs.length())
             // ignore and move on
-            System.err.println("Unparsable developer info: '" + devs.substring(totalMatched)+"'");
+            logger.info("Unparsable developer info: '{}'", devs.substring(totalMatched));
         return r;
     }
 

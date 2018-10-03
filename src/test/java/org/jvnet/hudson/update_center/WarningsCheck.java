@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-public class WarningsTest {
+public class WarningsCheck {
     public void testValidJsonFile() throws Exception {
         String warningsText = IOUtils.toString(this.getClass().getClassLoader().getResourceAsStream("warnings.json"));
         JSONArray warnings = JSONArray.fromObject(warningsText);

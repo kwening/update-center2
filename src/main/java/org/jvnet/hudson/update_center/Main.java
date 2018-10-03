@@ -33,6 +33,8 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.spi.OptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -57,6 +59,8 @@ import java.util.TreeMap;
  * @author Kohsuke Kawaguchi
  */
 public class Main {
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	
     public File jsonp = new File("output.json");
 
     public File json = new File("actual.json");
@@ -364,10 +368,10 @@ public class Main {
 
     private JSONObject buildPluginVersions(MavenRepository repository) throws Exception {
         JSONObject plugins = new JSONObject();
-        System.out.println("Build plugin versions index from the maven repo...");
+        logger.info("Build plugin versions index from the maven repo...");
 
         for (PluginHistory plugin : repository.listHudsonPlugins()) {
-                System.out.println(plugin.artifactId);
+                logger.info(plugin.artifactId);
 
                 JSONObject versions = new JSONObject();
 
@@ -420,10 +424,10 @@ public class Main {
         if (downloadFallback != null) {
             redirector = new ArtifactoryRedirector(downloadFallback);
         }
-        System.out.println("Gathering list of plugins and versions from the maven repo...");
+        logger.info("Gathering list of plugins and versions from the maven repo...");
         for (PluginHistory hpi : repository.listHudsonPlugins()) {
             try {
-                System.out.println(hpi.artifactId);
+                logger.info(hpi.artifactId);
 
                 // Gather the plugin properties from the plugin file and the wiki
                 Plugin plugin = new Plugin(hpi);
@@ -432,10 +436,10 @@ public class Main {
 
                 JSONObject json = plugin.toJSON();
                 if (json == null) {
-                    System.out.println("Skipping due to lack of checksums: " + plugin.getName());
+                    logger.info("Skipping due to lack of checksums: {}", plugin.getName());
                     continue;
                 }
-                System.out.println("=> " + hpi.latest().getGavId());
+                logger.info("=> {}", hpi.latest().getGavId());
                 plugins.put(plugin.artifactId, json);
                 latest.add(plugin.artifactId+".hpi", plugin.latest.getURL().getPath());
 
@@ -471,7 +475,7 @@ public class Main {
 
         if (pluginCountTxt!=null)
             FileUtils.writeStringToFile(pluginCountTxt,String.valueOf(validCount));
-        System.out.println("Total " + validCount + " plugins listed.");
+        logger.info("Total {} plugins listed.", validCount);
         return plugins;
     }
 
@@ -531,7 +535,7 @@ public class Main {
         JSONArray releaseHistory = new JSONArray();
         for( Map.Entry<Date,Map<String,HPI>> relsOnDate : repository.listHudsonPluginsByReleaseDate().entrySet() ) {
             String relDate = MavenArtifact.getDateFormat().format(relsOnDate.getKey());
-            System.out.println("Releases on " + relDate);
+            logger.info("Releases on {}", relDate);
             
             JSONArray releases = new JSONArray();
 
@@ -554,9 +558,9 @@ public class Main {
                     o.put("timestamp", h.getTimestamp());
                     o.put("url", "https://plugins.jenkins.io/" + h.artifact.artifactId);
 
-                    System.out.println("\t" + h.getGavId());
+                    logger.info("\t{}", h.getGavId());
                 } catch (IOException e) {
-                    System.out.println("Failed to resolve plugin " + h.artifact.artifactId + " so using defaults");
+                    logger.info("Failed to resolve plugin {} so using defaults", h.artifact.artifactId);
                     o.put("title", h.artifact.artifactId);
                     o.put("wiki", "");
                 }
@@ -611,13 +615,13 @@ public class Main {
      * @return the JSON for the core Jenkins
      */
     protected JSONObject buildCore(MavenRepository repository, LatestLinkBuilder redirect) throws Exception {
-        System.out.println("Finding latest Jenkins core WAR...");
+        logger.info("Finding latest Jenkins core WAR...");
         TreeMap<VersionNumber,HudsonWar> wars = repository.getHudsonWar();
         if (wars.isEmpty())     return null;
 
         HudsonWar latest = wars.get(wars.firstKey());
         JSONObject core = latest.toJSON("core");
-        System.out.println("core\n=> "+ core);
+        logger.info("core\n=> {}", core);
 
         redirect.add("jenkins.war", latest.getURL().getPath());
 

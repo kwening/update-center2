@@ -24,8 +24,7 @@ public class ArtifactoryRedirector {
         } else {
             filename = basename + "." + a.artifact.packaging;
         }
-        String ret = "http://repo.jenkins-ci.org/releases/" + a.artifact.groupId.replace(".", "/") + "/" + a.artifact.artifactId + "/" + a.version + "/" + filename;
-        return ret;
+        return "http://repo.jenkins-ci.org/releases/" + a.artifact.groupId.replace(".", "/") + "/" + a.artifact.artifactId + "/" + a.version + "/" + filename;
     }
 
     public void recordRedirect(MavenArtifact a, String path) {
@@ -39,10 +38,10 @@ public class ArtifactoryRedirector {
 
     public void writeRedirects() throws IOException {
         directory.mkdirs();
-        FileWriter writer = new FileWriter(new File(directory, ".htaccess"));
-        for (Map.Entry<String, MavenArtifact> entry : redirects.entrySet()) {
-            writer.write(String.format("Redirect \"/%s\" \"%s\"\n", regexEscape(entry.getKey()), getUri(entry.getValue())));
+        try(FileWriter writer = new FileWriter(new File(directory, ".htaccess"))){
+	        for (Map.Entry<String, MavenArtifact> entry : redirects.entrySet()) {
+	            writer.write(String.format("Redirect \"/%s\" \"%s\"%n", regexEscape(entry.getKey()), getUri(entry.getValue())));
+	        }
         }
-        writer.close();
     }
 }
