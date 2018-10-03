@@ -5,6 +5,7 @@ target
 .classpath
 .project
 .settings
+download
 www
 .htaccess
 .idea
