@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.Attributes;
 import java.util.regex.*;
 import java.net.URL;
 import java.net.MalformedURLException;
@@ -68,24 +69,17 @@ public class HPI extends MavenArtifact {
     /**
      * Who built this release?
      */
-    public String getBuiltBy() throws IOException {
-        return getManifestAttributes().getValue("Built-By");
+    public String getBuiltBy() {
+        return getMainfestAttributeValue("Built-By");
     }
 
-    /**
-     * @deprecated
-     *      Most probably you should be using {@link #getRequiredJenkinsVersion()}
-     */
-    @Deprecated
-    public String getRequiredHudsonVersion() throws IOException {
-        return getManifestAttributes().getValue("Hudson-Version");
-    }
-
-    public String getRequiredJenkinsVersion() throws IOException {
-        String v = getManifestAttributes().getValue("Jenkins-Version");
-        if (v!=null)        return v;
-
-        v = getManifestAttributes().getValue("Hudson-Version");
+    public String getRequiredJenkinsVersion() {
+    	String v = getMainfestAttributeValue("Jenkins-Version");
+		if (v!=null)        
+			return v;
+		
+		v = getMainfestAttributeValue("Hudson-Version");
+        
         if (fixNull(v) != null) {
             try {
                 VersionNumber n = new VersionNumber(v);
@@ -101,7 +95,7 @@ public class HPI extends MavenArtifact {
         // If value is missing, let's default to 1.398 for now.
         return "1.398";
     }
-
+    
     /**
      * Earlier versions of the maven-hpi-plugin put "null" string literal, so we need to treat it as real null.
      */
@@ -110,20 +104,20 @@ public class HPI extends MavenArtifact {
         return v;
     }
 
-    public String getCompatibleSinceVersion() throws IOException {
-        return getManifestAttributes().getValue("Compatible-Since-Version");
+    public String getCompatibleSinceVersion() {
+    	return getMainfestAttributeValue("Compatible-Since-Version");
     }
 
-    public String getDisplayName() throws IOException {
-        return getManifestAttributes().getValue("Long-Name");
+    public String getDisplayName() {
+        return getMainfestAttributeValue("Long-Name");
     }
 
-    public String getSandboxStatus() throws IOException {
-        return getManifestAttributes().getValue("Sandbox-Status");
+    public String getSandboxStatus() {
+        return getMainfestAttributeValue("Sandbox-Status");
     }
 
-    public List<Dependency> getDependencies() throws IOException {
-        String deps = getManifestAttributes().getValue("Plugin-Dependencies");
+    public List<Dependency> getDependencies() {
+        String deps = getMainfestAttributeValue("Plugin-Dependencies");
         if(deps==null)  return Collections.emptyList();
 
         List<Dependency> r = new ArrayList<>();
@@ -132,8 +126,8 @@ public class HPI extends MavenArtifact {
         return r;
     }
 
-    public List<Developer> getDevelopers() throws IOException {
-        String devs = getManifestAttributes().getValue("Plugin-Developers");
+    public List<Developer> getDevelopers() {
+        String devs = getMainfestAttributeValue("Plugin-Developers");
         if (devs == null || devs.trim().length()==0) return Collections.emptyList();
 
         List<Developer> r = new ArrayList<>();
@@ -219,5 +213,15 @@ public class HPI extends MavenArtifact {
     public boolean isAuthenticJenkinsArtifact() {
         // mayebe it should be startWith("org.jenkins")?
         return artifact.groupId.contains("jenkins");
+    }
+    
+    private String getMainfestAttributeValue(String key) {
+    	try {
+    		return getManifestAttributes().getValue(key);
+    	} catch(IOException e) {
+    		logger.warn("Failed to get manifest attributes '" + key + "'");
+    		logger.debug(e.getMessage(), e);
+    		return null;
+    	}
     }
 }

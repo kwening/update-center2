@@ -167,7 +167,7 @@ public class MavenArtifact {
 
     public Manifest getManifest() throws IOException {
         if (manifest==null) {
-            manifest = ArtifactSource.getInstance().getManifest(this);
+        	manifest = ArtifactSource.getInstance().getManifest(this);
         }
         return manifest;
     }

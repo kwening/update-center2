@@ -46,8 +46,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -60,6 +58,8 @@ import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamRenderer;
 import org.owasp.html.PolicyFactory;
 import org.owasp.html.Sanitizers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.NodeList;
 
 /**
@@ -68,6 +68,8 @@ import org.w3c.dom.NodeList;
  * @author Kohsuke Kawaguchi
  */
 public class Plugin {
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	
     /**
      * Plugin artifact ID.
      */
@@ -106,7 +108,8 @@ public class Plugin {
             try {
                 h.getManifest();
             } catch (IOException e) {
-                LOGGER.log(Level.WARNING, "Failed to resolve "+h+". Dropping this version.",e);
+            	logger.warn("Failed to resolve {}. Dropping this version.", h);
+            	logger.debug(e.getMessage(),e);
                 continue;
             }
             latest = h;
@@ -117,7 +120,8 @@ public class Plugin {
             try {
                 h.getManifest();
             } catch (IOException e) {
-                LOGGER.log(Level.WARNING, "Failed to resolve "+h+". Dropping this version.",e);
+            	logger.warn("Failed to resolve {}. Dropping this version.", h);
+            	logger.debug(e.getMessage(),e);
                 continue;
             }
             previous = h;
@@ -151,8 +155,7 @@ public class Plugin {
         try {
             return xmlReader.read(latest.resolvePOM());
         } catch (DocumentException e) {
-            System.err.println("** Can't parse POM for "+artifactId);
-            e.printStackTrace();
+            logger.error("** Can't parse POM for "+artifactId, e);
             return null;
         }
     }
@@ -163,7 +166,7 @@ public class Plugin {
         String url = URL_OVERRIDES.getProperty(artifactId);
 
         // Otherwise read the wiki URL from the POM, if any
-        if (url == null) {
+        if (url == null && latest != null) {
             url = readSingleValueFromXmlFile(latest.resolvePOM(), "/project/url");
         }
 
@@ -175,7 +178,7 @@ public class Plugin {
         }
 
         if (url != null && !url.equals(originalUrl)) {
-            LOGGER.info("Rewrote URL for plugin " + artifactId + " from " + originalUrl + " to " + url);
+        	logger.warn("Rewrote URL for plugin {} from {} to {}", artifactId, originalUrl, url);
         }
         return url;
     }
@@ -227,7 +230,7 @@ public class Plugin {
             String scm = readSingleValueFromXmlFile(latest.resolvePOM(), "/project/scm/url");
             // Try parent pom
             if (scm == null) {
-                System.out.println("** No SCM URL found in POM");
+                logger.info("** No SCM URL found in POM");
                 Element parent = (Element) selectSingleNode(getPom(), "/project/parent");
                 if (parent != null) {
                     try {
@@ -239,12 +242,11 @@ public class Plugin {
                                         ""), "pom", null);
                         scm = readSingleValueFromXmlFile(parentPomFile, "/project/scm/url");
                         if (scm == null) {
-                            System.out.println("** No SCM URL found in parent POM");
+                            logger.info("** No SCM URL found in parent POM");
                             // grandparent is pointless, no additional hits
                         }
                     } catch (Exception ex) {
-                        System.out.println("** Failed to read parent pom");
-                        ex.printStackTrace();
+                        logger.warn("** Failed to read parent pom", ex);
                     }
                 }
             }
@@ -252,7 +254,7 @@ public class Plugin {
                 return null;
             }
             if (filterKnownObsoleteUrls(scm) == null) {
-                System.out.println("** Filtered obsolete URL in SCM URL");
+                logger.info("** Filtered obsolete URL in SCM URL");
                 return null;
             }
             return scm;
@@ -267,7 +269,7 @@ public class Plugin {
             String scm = readSingleValueFromXmlFile(latest.resolvePOM(), "/project/scm/developerConnection");
             // Try parent pom
             if (scm == null) {
-                System.out.println("** No SCM developerConnection found in POM");
+                logger.info("** No SCM developerConnection found in POM");
                 Element parent = (Element) selectSingleNode(getPom(), "/project/parent");
                 if (parent != null) {
                     try {
@@ -279,11 +281,10 @@ public class Plugin {
                                         ""), "pom", null);
                         scm = readSingleValueFromXmlFile(parentPomFile, "/project/scm/developerConnection");
                         if (scm == null) {
-                            System.out.println("** No SCM developerConnection found in parent POM");
+                            logger.info("** No SCM developerConnection found in parent POM");
                         }
                     } catch (Exception ex) {
-                        System.out.println("** Failed to read parent pom");
-                        ex.printStackTrace();
+                        logger.info("** Failed to read parent pom", ex);
                     }
                 }
             }
@@ -291,7 +292,7 @@ public class Plugin {
                 return null;
             }
             if (filterKnownObsoleteUrls(scm) == null) {
-                System.out.println("** Filtered obsolete URL in SCM developerConnection");
+                logger.info("** Filtered obsolete URL in SCM developerConnection");
                 return null;
             }
             return scm;
@@ -362,25 +363,25 @@ public class Plugin {
                 scm = getScmUrlFromDeveloperConnection();
             }
             if (scm == null) {
-                System.out.println("** Failed to determine SCM URL from POM or parent POM of " + artifactId);
+                logger.info("** Failed to determine SCM URL from POM or parent POM of {}", artifactId);
             }
             scm = interpolateProjectName(scm);
             String originalScm = scm;
             scm = requireHttpsGitHubJenkinsciUrl(scm);
             if (originalScm != null && scm == null) {
-                System.out.println("** Rejecting URL outside GitHub.com/jenkinsci for " + artifactId + ": " + originalScm);
+                logger.info("** Rejecting URL outside GitHub.com/jenkinsci for {}: {}", artifactId, originalScm);
             }
 
             if (scm == null) {
                 // Last resort: check whether a ${artifactId}-plugin repo in jenkinsci exists, if so, use that
                 scm = "https://github.com/jenkinsci/" + artifactId + "-plugin";
-                System.out.println("** Falling back to default repo for " + artifactId + ": " + scm);
+                logger.info("** Falling back to default repo for {}: {}", artifactId, scm);
 
                 String checkedScm = scm;
                 // Check whether the fallback repo actually exists, if not, don't publish the repo name
                 scm = requireGitHubRepoExistence(scm);
                 if (scm == null) {
-                    System.out.println("** Repository does not actually exist: " + checkedScm);
+                    logger.info("** Repository does not actually exist: {}", checkedScm);
                 }
             }
 
@@ -405,6 +406,9 @@ public class Plugin {
 
     /** @return The plugin name defined in the POM &lt;name> modified by simplication rules (no 'Jenkins', no 'Plugin'); then artifact ID. */
     public String getName() throws IOException {
+    	if(latest == null)
+    		return "";
+    	
         String title = readSingleValueFromXmlFile(latest.resolvePOM(), "/project/name");
         if (title == null || "".equals(title)) {
             title = artifactId;
@@ -429,6 +433,9 @@ public class Plugin {
     private static final PolicyFactory HTML_POLICY = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
 
     public JSONObject toJSON() throws Exception {
+    	if(latest == null)
+    		return null;
+    	
         JSONObject json = latest.toJSON(artifactId);
         if (json == null) {
             return null;
@@ -464,7 +471,7 @@ public class Plugin {
             HtmlSanitizer.sanitize(IOUtils.toString(is), HTML_POLICY.apply(renderer));
             description = b.toString().trim().replaceAll("\\s+", " ");
         } catch (IOException e) {
-            System.err.println("Failed to read description from index.jelly: " + e.getMessage());
+            logger.error("Failed to read description from index.jelly",e);
         }
         if (latest.isAlphaOrBeta()) {
             description = "<b>(This version is experimental and may change in backward-incompatible ways)</b>" + (description == null ? "" : ("<br><br>" + description));
@@ -522,6 +529,4 @@ public class Plugin {
             throw new Error(e);
         }
     }
-
-    private static final Logger LOGGER = Logger.getLogger(Plugin.class.getName());
 }

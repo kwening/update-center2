@@ -110,25 +110,24 @@ public class Signer {
 
         List<X509Certificate> certs = getCertificateChain();
         X509Certificate signer = certs.get(0); // the first one is the signer, and the rest is the chain to a root CA.
-
-        PrivateKey key = ((KeyPair)new PEMReader(new FileReader(privateKey)).readObject()).getPrivate();
-
-        // first, backward compatible signature for <1.433 Jenkins that forgets to flush the stream.
-        // we generate this in the original names that those Jenkins understands.
-        SignatureGenerator sg = new SignatureGenerator(signer, key);
-        o.writeCanonical(new OutputStreamWriter(sg.getOut(),UTF8));
-        sg.addRecord(sign,"");
-
-        // then the correct signature, into names that don't collide.
-        OutputStream raw = new NullOutputStream();
-        if (canonical!=null) {
-            raw = new FileOutputStream(canonical);
+        
+        try(FileReader reader = new FileReader(privateKey);
+        		OutputStream raw = (canonical!=null ? new FileOutputStream(canonical) : new NullOutputStream())){
+	        PrivateKey key = ((KeyPair)new PEMReader(reader).readObject()).getPrivate();
+	
+	        // first, backward compatible signature for <1.433 Jenkins that forgets to flush the stream.
+	        // we generate this in the original names that those Jenkins understands.
+	        SignatureGenerator sg = new SignatureGenerator(signer, key);
+	        o.writeCanonical(new OutputStreamWriter(sg.getOut(),UTF8));
+	        sg.addRecord(sign,"");
+	
+	        // then the correct signature, into names that don't collide.
+	        sg = new SignatureGenerator(signer, key);        
+	        try(OutputStreamWriter osw = new OutputStreamWriter(new TeeOutputStream(sg.getOut(),raw),UTF8)) {            
+	            o.writeCanonical(osw);
+	        }
+	        sg.addRecord(sign,"correct_");
         }
-        sg = new SignatureGenerator(signer, key);        
-        try(OutputStreamWriter osw = new OutputStreamWriter(new TeeOutputStream(sg.getOut(),raw),UTF8)) {            
-            o.writeCanonical(osw);
-        }
-        sg.addRecord(sign,"correct_");
 
         // and certificate chain
         JSONArray a = new JSONArray();

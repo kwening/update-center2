@@ -464,7 +464,7 @@ public class Main {
 
                 validCount++;
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("Failed to get plugin history " + hpi, e);
                 // move on to the next plugin
             }
         }

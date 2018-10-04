@@ -68,18 +68,16 @@ public class VersionCappedMavenRepository extends MavenRepository {
                     }
                     continue;
                 }
-                try {
-                    VersionNumber v = new VersionNumber(e.getValue().getRequiredJenkinsVersion());
-                    if (v.compareTo(capPlugin)<=0) {
-                        versionNumberHPIMap.put(e.getKey(), e.getValue());
-                        if (versionNumberHPIMap.size() >= 2) {
-                            break;
-                        }
-                        continue;
+                
+                VersionNumber v = new VersionNumber(e.getValue().getRequiredJenkinsVersion());
+                if (v.compareTo(capPlugin)<=0) {
+                    versionNumberHPIMap.put(e.getKey(), e.getValue());
+                    if (versionNumberHPIMap.size() >= 2) {
+                        break;
                     }
-                } catch (IOException x) {
-                    x.printStackTrace();
+                    continue;
                 }
+            
             }
 
             h.artifacts.entrySet().retainAll(versionNumberHPIMap.entrySet());
