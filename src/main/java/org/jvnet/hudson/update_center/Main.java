@@ -28,11 +28,11 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.tools.ant.types.Path;
 import org.kohsuke.args4j.ClassParser;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-import org.kohsuke.args4j.spi.OptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -60,16 +61,18 @@ import java.util.TreeMap;
  */
 public class Main {
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	private static final String LATEST = "latest";
+	private static final String PLUGINS = "plugins";
 	
-    public File jsonp = new File("output.json");
+	private File jsonp = new File("output.json");
 
-    public File json = new File("actual.json");
+    private File json = new File("actual.json");
 
-    public File releaseHistory = new File("release-history.json");
+    private File releaseHistory = new File("release-history.json");
 
-    public File pluginVersions = new File("plugin-versions.json");
+    private File pluginVersions = new File("plugin-versions.json");
 
-    public File urlmap = new File("plugin-to-documentation-url.json");
+    private File urlmap = new File("plugin-to-documentation-url.json");
 
     private Map<String, String> pluginToDocumentationUrl = new HashMap<>();
 
@@ -77,7 +80,7 @@ public class Main {
      * This file defines all the convenient symlinks in the form of
      * ./latest/PLUGINNAME.hpi.
      */
-    public File latest = new File("latest");
+    private File latest = new File(LATEST);
 
     /**
      * This option builds the directory image for the download server, which contains all the plugins
@@ -118,9 +121,9 @@ public class Main {
     @Option(name="-www-download",usage="Build updates.jenkins-ci.org/download directory")
     public File wwwDownload = null;
 
-    public File indexHtml = null;
+    private File indexHtml = null;
 
-    public File latestCoreTxt = null;
+    private File latestCoreTxt = null;
 
     @Option(name="-id",required=true,usage="Uniquely identifies this update center. We recommend you use a dot-separated name like \"com.sun.wts.jenkins\". This value is not exposed to users, but instead internally used by Jenkins.")
     public String id;
@@ -186,7 +189,7 @@ public class Main {
                 for (String line : invocations) {
                     if (!line.trim().startsWith("#") && !line.trim().isEmpty()) {
 
-                        System.err.println("Running with args: " + line);
+                        logger.info("Running with args: {}", line);
                         // TODO combine args array and this list
                         String[] invocationArgs = line.split(" +");
 
@@ -202,7 +205,7 @@ public class Main {
 
             return 0;
         } catch (CmdLineException e) {
-            System.err.println(e.getMessage());
+            logger.error(e.getMessage());
             p.printUsage(System.err);
             return 1;
         }
@@ -215,13 +218,13 @@ public class Main {
                     try {
                         field.set(this, null);
                     } catch (IllegalAccessException e) {
-                        e.printStackTrace();
+                    	logger.error("", e);
                     }
                 } else if (boolean.class.isAssignableFrom(field.getType())) {
                     try {
                         field.set(this, false);
                     } catch (IllegalAccessException e) {
-                        e.printStackTrace();
+                    	logger.error("", e);
                     }
                 }
             }
@@ -238,7 +241,7 @@ public class Main {
         jsonp = new File(www,"update-center.json");
         urlmap = new File(www, "plugin-documentation-urls.json");
 
-        latest = new File(www,"latest");
+        latest = new File(www,LATEST);
         indexHtml = new File(www,"index.html");
         pluginVersions = new File(www, "plugin-versions.json");
         releaseHistory = new File(www,"release-history.json");
@@ -253,9 +256,9 @@ public class Main {
 
         MavenRepository repo = createRepository();
 
-        LatestLinkBuilder latest = createHtaccessWriter();
+        LatestLinkBuilder llb = createHtaccessWriter();
 
-        JSONObject ucRoot = buildUpdateCenterJson(repo, latest);
+        JSONObject ucRoot = buildUpdateCenterJson(repo, llb);
         writeToFile(mapPluginToDocumentationUrl(), urlmap);
         writeToFile(updateCenterPostCallJson(ucRoot), jsonp);
         writeToFile(prettyPrintJson(ucRoot), json);
@@ -271,7 +274,7 @@ public class Main {
             writeToFile(rh, releaseHistory);
         }
 
-        latest.close();
+        llb.close();
     }
 
     String mapPluginToDocumentationUrl() {
@@ -305,7 +308,7 @@ public class Main {
     private JSONObject buildPluginVersionsJson(MavenRepository repo) throws Exception {
         JSONObject root = new JSONObject();
         root.put("updateCenterVersion","1");    // we'll bump the version when we make incompatible changes
-        root.put("plugins", buildPluginVersions(repo));
+        root.put(PLUGINS, buildPluginVersions(repo));
 
         if (signer.isConfigured())
             signer.sign(root);
@@ -320,7 +323,7 @@ public class Main {
         if (core!=null)
             root.put("core", core);
         root.put("warnings", buildWarnings());
-        root.put("plugins", buildPlugins(repo, latest));
+        root.put(PLUGINS, buildPlugins(repo, latest));
         root.put("id",id);
         if (connectionCheckUrl!=null)
             root.put("connectionCheckUrl",connectionCheckUrl);
@@ -333,8 +336,7 @@ public class Main {
 
     private JSONArray buildWarnings() throws IOException {
         String warningsText = IOUtils.toString(this.getClass().getClassLoader().getResourceAsStream("warnings.json"));
-        JSONArray warnings = JSONArray.fromObject(warningsText);
-        return warnings;
+        return JSONArray.fromObject(warningsText);
     }
 
     private static void writeToFile(String string, final File file) throws IOException {
@@ -398,7 +400,7 @@ public class Main {
 
                         versions.put(hpi.version, hpiJson);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        logger.error("", e);
                         // skip this version
                     }
                 }
@@ -414,9 +416,6 @@ public class Main {
      * @param latest
      */
     protected JSONObject buildPlugins(MavenRepository repository, LatestLinkBuilder latest) throws Exception {
-
-        final boolean isVersionCappedRepository = isVersionCappedRepository(repository);
-
         int validCount = 0;
 
         JSONObject plugins = new JSONObject();
@@ -434,18 +433,18 @@ public class Main {
 
                 pluginToDocumentationUrl.put(plugin.artifactId, plugin.getPluginUrl());
 
-                JSONObject json = plugin.toJSON();
-                if (json == null) {
+                JSONObject pluginJson = plugin.toJSON();
+                if (pluginJson == null) {
                     logger.info("Skipping due to lack of checksums: {}", plugin.getName());
                     continue;
                 }
                 logger.info("=> {}", hpi.latest().getGavId());
-                plugins.put(plugin.artifactId, json);
+                plugins.put(plugin.artifactId, pluginJson);
                 latest.add(plugin.artifactId+".hpi", plugin.latest.getURL().getPath());
 
                 if (download!=null) {
                     for (HPI v : hpi.artifacts.values()) {
-                        stage(v, new File(download, "plugins/" + hpi.artifactId + "/" + v.version + "/" + hpi.artifactId + ".hpi"));
+                        stage(v, new File(download, PLUGINS + File.separator + hpi.artifactId + File.separator + v.version + File.separator + hpi.artifactId + ".hpi"));
                     }
                     if (!hpi.artifacts.isEmpty())
                         createLatestSymlink(hpi, plugin.latest);
@@ -453,12 +452,12 @@ public class Main {
 
                 if (wwwDownload!=null) {
                     String permalink = String.format("/latest/%s.hpi", plugin.artifactId);
-                    buildIndex(new File(wwwDownload, "plugins/" + hpi.artifactId), hpi.artifactId, hpi.artifacts.values(), permalink);
+                    buildIndex(new File(wwwDownload, PLUGINS + File.separator + hpi.artifactId), hpi.artifactId, hpi.artifacts.values(), permalink);
                 }
 
                 if (redirector != null) {
                     for (HPI v : hpi.artifacts.values()) {
-                        redirector.recordRedirect(v, "plugins/" + hpi.artifactId + "/" + v.version + "/" + hpi.artifactId + ".hpi");
+                        redirector.recordRedirect(v, PLUGINS + "/" + hpi.artifactId + "/" + v.version + "/" + hpi.artifactId + ".hpi");
                     }
                 }
 
@@ -483,11 +482,11 @@ public class Main {
      * Generates symlink to the latest version.
      */
     protected void createLatestSymlink(PluginHistory hpi, HPI latest) throws InterruptedException, IOException {
-        File dir = new File(download, "plugins/" + hpi.artifactId);
-        new File(dir,"latest").delete();
+        File dir = new File(download, PLUGINS + File.separator + hpi.artifactId);
+        Files.delete(new File(dir,LATEST).toPath());
 
         ProcessBuilder pb = new ProcessBuilder();
-        pb.command("ln","-s", latest.version, "latest");
+        pb.command("ln","-s", latest.version, LATEST);
         pb.directory(dir);
         int r = pb.start().waitFor();
         if (r !=0)
@@ -532,7 +531,7 @@ public class Main {
         Calendar oldestDate = new GregorianCalendar();
         oldestDate.add(Calendar.DAY_OF_MONTH, -31);
 
-        JSONArray releaseHistory = new JSONArray();
+        JSONArray releaseHistoryJSON = new JSONArray();
         for( Map.Entry<Date,Map<String,HPI>> relsOnDate : repository.listHudsonPluginsByReleaseDate().entrySet() ) {
             String relDate = MavenArtifact.getDateFormat().format(relsOnDate.getKey());
             logger.info("Releases on {}", relDate);
@@ -577,37 +576,25 @@ public class Main {
             JSONObject d = new JSONObject();
             d.put("date", relDate);
             d.put("releases", releases);
-            releaseHistory.add(d);
+            releaseHistoryJSON.add(d);
         }
         
-        return releaseHistory;
+        return releaseHistoryJSON;
     }
 
     private void buildIndex(File dir, String title, Collection<? extends MavenArtifact> versions, String permalink) throws IOException {
-        List<MavenArtifact> list = new ArrayList<MavenArtifact>(versions);
+        List<MavenArtifact> list = new ArrayList<>(versions);
         Collections.sort(list,new Comparator<MavenArtifact>() {
             public int compare(MavenArtifact o1, MavenArtifact o2) {
                 return -o1.getVersion().compareTo(o2.getVersion());
             }
         });
 
-        IndexHtmlBuilder index = new IndexHtmlBuilder(dir, title);
-        index.add(permalink,"permalink to the latest");
-        for (MavenArtifact a : list)
-            index.add(a);
-        index.close();
-    }
-
-    /**
-     * Creates a symlink.
-     */
-    private void ln(String from, File to) throws InterruptedException, IOException {
-        to.getParentFile().mkdirs();
-
-        ProcessBuilder pb = new ProcessBuilder();
-        pb.command("ln","-sf", from,to.getAbsolutePath());
-        if (pb.start().waitFor()!=0)
-            throw new IOException("ln failed");
+        try(IndexHtmlBuilder index = new IndexHtmlBuilder(dir, title)){
+        	index.add(permalink,"permalink to the latest");
+            for (MavenArtifact a : list)
+                index.add(a);	
+        }
     }
 
     /**
@@ -619,19 +606,19 @@ public class Main {
         TreeMap<VersionNumber,HudsonWar> wars = repository.getHudsonWar();
         if (wars.isEmpty())     return null;
 
-        HudsonWar latest = wars.get(wars.firstKey());
-        JSONObject core = latest.toJSON("core");
+        HudsonWar latestCore = wars.get(wars.firstKey());
+        JSONObject core = latestCore.toJSON("core");
         logger.info("core\n=> {}", core);
 
-        redirect.add("jenkins.war", latest.getURL().getPath());
+        redirect.add("jenkins.war", latestCore.getURL().getPath());
 
         if (latestCoreTxt !=null)
-            writeToFile(latest.getVersion().toString(), latestCoreTxt);
+            writeToFile(latestCore.getVersion().toString(), latestCoreTxt);
 
         if (download!=null) {
             // build the download server layout
             for (HudsonWar w : wars.values()) {
-                 stage(w, new File(download,"war/"+w.version+"/"+w.getFileName()));
+                 stage(w, new File(download,"war/" + w.version+ File.separator + w.getFileName()));
             }
         }
 
@@ -639,17 +626,6 @@ public class Main {
             buildIndex(new File(wwwDownload,"war/"),"jenkins.war", wars.values(), "/latest/jenkins.war");
 
         return core;
-    }
-
-    /** @return {@code true} iff the given repository, or one of the repositories it wraps, is version-capped. */
-    private static boolean isVersionCappedRepository(MavenRepository repository) {
-        if (repository instanceof VersionCappedMavenRepository) {
-            return true;
-        }
-        if (repository.getBaseRepository() == null) {
-            return false;
-        }
-        return isVersionCappedRepository(repository.getBaseRepository());
     }
 
     private static final VersionNumber ANY_VERSION = new VersionNumber("999.999");

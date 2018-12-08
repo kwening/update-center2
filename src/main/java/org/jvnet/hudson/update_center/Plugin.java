@@ -90,7 +90,7 @@ public class Plugin {
      */
     private Document pom;
 
-    public Plugin(String artifactId, HPI latest, HPI previous) throws IOException {
+    public Plugin(String artifactId, HPI latest, HPI previous) {
         this.artifactId = artifactId;
         this.latest = latest;
         this.previous = previous;
@@ -99,41 +99,42 @@ public class Plugin {
 
     public Plugin(PluginHistory hpi) throws IOException {
         this.artifactId = hpi.artifactId;
-        HPI previous = null, latest = null;
+        HPI previousVersion = null;
+        HPI latestVersion = null;
 
         Iterator<HPI> it = hpi.artifacts.values().iterator();
 
-        while (latest == null && it.hasNext()) {
+        while (latestVersion == null && it.hasNext()) {
             HPI h = it.next();
             try {
                 h.getManifest();
             } catch (IOException e) {
             	logger.warn("Failed to resolve {}. Dropping this version.", h);
-            	logger.debug(e.getMessage(),e);
+            	logger.debug("Exception",e);
                 continue;
             }
-            latest = h;
+            latestVersion = h;
         }
 
-        while (previous == null && it.hasNext()) {
+        while (previousVersion == null && it.hasNext()) {
             HPI h = it.next();
             try {
                 h.getManifest();
             } catch (IOException e) {
             	logger.warn("Failed to resolve {}. Dropping this version.", h);
-            	logger.debug(e.getMessage(),e);
+            	logger.debug("Exception",e);
                 continue;
             }
-            previous = h;
+            previousVersion = h;
         }
 
-        this.latest = latest;
-        this.previous = previous == latest ? null : previous;
+        this.latest = latestVersion;
+        this.previous = previousVersion == latestVersion ? null : previousVersion;
 
         this.xmlReader = createXmlReader();
     }
 
-    public Plugin(HPI hpi) throws IOException {
+    public Plugin(HPI hpi) {
         this(hpi.artifact.artifactId, hpi,  null);
     }
 
